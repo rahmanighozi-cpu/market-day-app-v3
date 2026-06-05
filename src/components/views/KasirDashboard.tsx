@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label, Badge } from '../ui';
 import { useStore } from '../../store';
 import { formatIDR, getNowFormatted } from '../../lib/utils';
@@ -7,7 +7,9 @@ import { motion } from 'motion/react';
 
 export default function KasirDashboard() {
   const { menuProduk, addTransaksi, profiles, transaksi } = useStore();
-  const kasirProfile = profiles['Kasir'];
+  
+  // PENGAMAN 1: Fallback objek kosong agar properti di bawahnya tidak memicu crash
+  const kasirProfile = profiles?.['Kasir'] || { leader: '', members: [], isFilled: false };
 
   const [buyerName, setBuyerName] = useState('');
   const [buyerCategory, setBuyerCategory] = useState<'Siswa' | 'Guru' | 'Umum'>('Siswa');
@@ -15,7 +17,9 @@ export default function KasirDashboard() {
   const [qty, setQty] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<'Tunai' | 'QRIS'>('Tunai');
 
-  const selectedMenu = menuProduk.find(m => m.id === selectedMenuId);
+  // PENGAMAN 2: Amankan pencarian data menu produk
+  const safeMenuProduk = menuProduk || [];
+  const selectedMenu = safeMenuProduk.find(m => m.id === selectedMenuId);
   const totalHarga = selectedMenu ? selectedMenu.sellPrice * qty : 0;
 
   const handleCheckout = (e: React.FormEvent) => {
@@ -28,8 +32,11 @@ export default function KasirDashboard() {
       return;
     }
 
+    // PENGAMAN 3: Deteksi nama petugas kasir secara aman dari profil
+    const currentSellerName = kasirProfile?.members?.[0]?.name || kasirProfile?.leader || 'Kasir';
+
     addTransaksi({
-        buyerName: buyerName || 'Anonim',
+        buyerName: buyerName.trim() || 'Anonim',
         category: buyerCategory,
         menuId: selectedMenu.id,
         menuName: selectedMenu.name,
@@ -38,20 +45,24 @@ export default function KasirDashboard() {
         totalPrice: totalHarga,
         method: paymentMethod,
         sellerRole: 'Kasir',
-        sellerName: kasirProfile.members[0]?.name || kasirProfile.leader || 'Kasir',
+        sellerName: currentSellerName,
     });
 
-    // Reset Form
+    // Reset Form setelah transaksi berhasil disetor
     setBuyerName('');
     setQty(1);
+    setSelectedMenuId('');
+    alert('Transaksi berhasil dicatat dan masuk ke riwayat!');
   };
 
-  const kasirTransactions = transaksi.filter(t => t.sellerRole === 'Kasir');
+  // PENGAMAN 4: Amankan array transaksi sebelum memanggil method filter
+  const safeTransaksi = transaksi || [];
+  const kasirTransactions = safeTransaksi.filter(t => t.sellerRole === 'Kasir');
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in duration-300">
       {/* Checkout Form */}
-      <Card className="lg:col-span-2 bg-card rounded-2xl">
+      <Card className="lg:col-span-2 bg-card rounded-2xl border-subtle">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 font-bold">
             <MonitorSmartphone className="h-5 w-5 text-[var(--primary-green)]" /> Point of Sale (POS) Stand Makan/Minum
@@ -62,7 +73,7 @@ export default function KasirDashboard() {
             <div className="grid gap-4 sm:grid-cols-2">
                <div className="space-y-2">
                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted mb-1 block">Nama Pembeli</Label>
-                 <Input value={buyerName} onChange={e => setBuyerName(e.target.value)} placeholder="Contoh: Dimas Aditya" className="bg-[var(--color-charcoal-100)] dark:bg-[var(--color-charcoal-950)] border-subtle" />
+                 <Input value={buyerName} onChange={e => setBuyerName(e.target.value)} placeholder="Contoh: Dimas Aditya" className="bg-[var(--color-charcoal-100)] dark:bg-[var(--color-charcoal-950)] border-subtle h-10" />
                </div>
                <div className="space-y-2">
                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted mb-1 block">Kategori Pembeli</Label>
@@ -86,7 +97,7 @@ export default function KasirDashboard() {
                    required
                  >
                    <option value="" disabled>-- Klik untuk memilih Hidangan --</option>
-                   {menuProduk.map(m => (
+                   {safeMenuProduk.map(m => (
                      <option key={m.id} value={m.id} disabled={m.stock <= 0}>
                        {m.name} - {formatIDR(m.sellPrice)} (Stok: {m.stock})
                      </option>
@@ -118,34 +129,33 @@ export default function KasirDashboard() {
                </div>
             </div>
 
-            <Button type="submit" variant="neon" className="w-full h-12 text-sm uppercase font-bold tracking-wider mt-4 shadow-lg group relative overflow-hidden bg-[var(--color-charcoal-900)] text-white hover:bg-[var(--primary-green)] hover:text-black hover:border-black transition-colors" disabled={!selectedMenuId || (selectedMenu?.stock || 0) < qty}>
+            <Button type="submit" variant="neon" className="w-full h-12 text-sm uppercase font-bold tracking-wider mt-4 shadow-sm group relative overflow-hidden bg-[var(--color-charcoal-900)] text-white hover:bg-[var(--primary-green)] hover:text-black hover:border-black transition-colors" disabled={!selectedMenuId || (selectedMenu?.stock || 0) < qty}>
                Proses Transaksi Penjualan <MonitorSmartphone className="ml-2 h-4 w-4 transition-transform group-hover:scale-110" />
             </Button>
           </form>
         </CardContent>
       </Card>
 
-      {/* Live Stock Indicator & Transactions */}
+      {/* Live Stock Indicator & Transactions History */}
       <div className="space-y-6">
           <Card className="bg-card rounded-2xl border-subtle shadow-sm overflow-hidden">
-             {/* Border red gradient if critical */}
              <div className="h-1 w-full bg-gradient-to-r from-red-500 to-orange-500"></div>
              <CardContent className="p-5 space-y-3">
                  <h4 className="font-bold text-sm text-red-500 flex items-center gap-2">
                      <AlertTriangle className="animate-bounce w-4 h-4" /> Peringatan Stok Kritis (&lt; 5 Pcs)
                  </h4>
                  <div className="space-y-2">
-                     {menuProduk.filter(m => m.stock < 5 && m.stock > 0).length === 0 && menuProduk.filter(m => m.stock === 0).length === 0 ? (
+                     {safeMenuProduk.filter(m => m.stock < 5 && m.stock > 0).length === 0 && safeMenuProduk.filter(m => m.stock === 0).length === 0 ? (
                          <p className="text-xs text-[var(--primary-green)] font-bold bg-[var(--primary-green)]/10 p-3 rounded-xl border border-[var(--primary-green)]/20">Semua stok produk aman dan mencukupi.</p>
                      ) : (
                        <>
-                         {menuProduk.filter(m => m.stock < 5 && m.stock > 0).map(m => (
+                         {safeMenuProduk.filter(m => m.stock < 5 && m.stock > 0).map(m => (
                              <div key={m.id} className="p-3 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 rounded-xl flex justify-between items-center text-xs">
                                  <span className="font-bold">{m.name}</span>
                                  <span className="font-black animate-pulse">Sisa {m.stock}</span>
                              </div>
                          ))}
-                         {menuProduk.filter(m => m.stock === 0).map(m => (
+                         {safeMenuProduk.filter(m => m.stock === 0).map(m => (
                              <div key={m.id} className="p-3 bg-red-500/20 border border-red-500/40 text-red-600 dark:text-red-500 rounded-xl flex justify-between items-center text-xs opacity-75">
                                  <span className="font-bold line-through">{m.name}</span>
                                  <span className="font-black">HABIS</span>
@@ -157,23 +167,30 @@ export default function KasirDashboard() {
              </CardContent>
           </Card>
 
+          {/* History Panel Terkini */}
           <Card className="bg-card rounded-2xl border-subtle shadow-sm">
              <CardContent className="p-5 space-y-3">
                  <h4 className="font-bold text-sm text-main flex items-center gap-2 uppercase tracking-wide text-xs">
-                     <Clock className="w-4 h-4 text-muted" /> Transaksi Terakhir Anda
+                     <Clock className="w-4 h-4 text-muted" /> Transaksi Terakhir Kasir
                  </h4>
-                 <div className="space-y-2 max-h-[180px] overflow-y-auto">
+                 <div className="space-y-2 max-h-[240px] overflow-y-auto">
                      {kasirTransactions.length === 0 ? (
-                         <p className="text-xs text-muted text-center py-4 border border-dashed border-subtle rounded-xl">Belum ada transaksi</p>
-                     ) : kasirTransactions.slice().reverse().map(tx => (
-                         <div key={tx.id} className="p-3 bg-[var(--color-charcoal-100)] dark:bg-[var(--color-charcoal-900)] rounded-xl flex justify-between items-center text-xs border border-subtle/50 hover:border-subtle transition-colors">
-                             <div>
-                                 <p className="font-bold text-main">{tx.menuName}</p>
-                                 <p className="text-[10px] text-muted font-bold tracking-wider mt-0.5">{tx.buyerName} &bull; {tx.qty} Pcs</p>
+                         <p className="text-xs text-muted text-center py-6 border border-dashed border-subtle rounded-xl bg-[var(--color-charcoal-50)] dark:bg-[var(--color-charcoal-950)]">Belum ada transaksi</p>
+                     ) : (
+                       // Mengurutkan history berdasarkan waktu terbaru secara aman
+                       [...kasirTransactions]
+                         .sort((a, b) => new Date(b.time || 0).getTime() - new Date(a.time || 0).getTime())
+                         .map(tx => (
+                             <div key={tx.id} className="p-3 bg-[var(--color-charcoal-50)] dark:bg-[var(--color-charcoal-900)] rounded-xl flex justify-between items-center text-xs border border-subtle/50 hover:border-subtle transition-colors">
+                                 <div className="space-y-0.5">
+                                     <p className="font-bold text-main">{tx.menuName}</p>
+                                     <p className="text-[10px] text-muted font-bold tracking-wider uppercase">{tx.buyerName} ({tx.category})</p>
+                                     <p className="text-[9px] text-muted font-medium">{tx.method} &bull; {tx.qty} Pcs</p>
+                                 </div>
+                                 <p className="font-black text-green-500 text-right">+{formatIDR(tx.totalPrice)}</p>
                              </div>
-                             <p className="font-black text-[var(--profit)]">+{formatIDR(tx.totalPrice)}</p>
-                         </div>
-                     ))}
+                         ))
+                     )}
                  </div>
              </CardContent>
           </Card>
