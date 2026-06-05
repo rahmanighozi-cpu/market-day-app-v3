@@ -8,8 +8,8 @@ import { motion } from 'motion/react';
 export default function KelilingDashboard() {
   const { menuProduk, addTransaksi, profiles } = useStore();
   
-  // PENGAMAN 1: Berikan fallback object kosong jika profiles atau profile 'Keliling' belum ter-load
-  const profile = profiles? rampi || profiles?.['Keliling'] || { leader: '', members: [], isFilled: false };
+  // PENGAMAN 1: Membersihkan typo 'rampi' dan menerapkan fallback objek kosong yang aman
+  const profile = profiles?.['Keliling'] || { leader: '', members: [], isFilled: false };
 
   const [sellerName, setSellerName] = useState('');
   const [selectedMenuId, setSelectedMenuId] = useState('');
