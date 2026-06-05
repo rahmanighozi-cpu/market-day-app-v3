@@ -3,7 +3,7 @@ import { getDatabase } from "firebase/database";
 
 // Konfigurasi Firebase asli milik database Anda
 const firebaseConfig = {
-  apiKey: "AIzaSyDD8-ZJU3rPgfjqymahRkEiEGzqiW5LnOQ",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: "market-day-app.firebaseapp.com",
   databaseURL: "https://market-day-app-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "market-day-app",
