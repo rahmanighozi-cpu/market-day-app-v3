@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-charcoal-50: #f4f4f5;
+  --color-charcoal-100: #e4e4e7;
+  --color-charcoal-200: #d4d4d8;
+  --color-charcoal-300: #a1a1aa;
+  --color-charcoal-400: #71717a;
+  --color-charcoal-500: #52525b;
+  --color-charcoal-600: #3f3f46;
+  --color-charcoal-700: #27272a;
+  --color-charcoal-800: #18181b;
+  --color-charcoal-900: #09090b;
+  --color-charcoal-950: #030303;
+  --color-neon-light: #d2fa6a;
+  --color-neon-default: #bcf53f;
+  --color-neon-dark: #9ad125;
+}
+
+@layer base {
+  :root {
+    --bg: var(--color-charcoal-50);
+    --card: #FFFFFF;
+    --card-hover: var(--color-charcoal-100);
+    --text: var(--color-charcoal-900);
+    --text-muted: var(--color-charcoal-500);
+    --border: var(--color-charcoal-200);
+    --input: #FFFFFF;
+    --primary-green: var(--color-neon-default);
+    --primary-green-hover: var(--color-neon-dark);
+    --profit: #22c55e;
+    --loss: #ef4444;
+  }
+
+  .dark {
+    --bg: var(--color-charcoal-950);
+    --card: var(--color-charcoal-900);
+    --card-hover: var(--color-charcoal-800);
+    --text: var(--color-charcoal-100);
+    --text-muted: var(--color-charcoal-400);
+    --border: var(--color-charcoal-800);
+    --input: var(--color-charcoal-950);
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Smooth Custom Scrollbar */
+  ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+  }
+  .dark ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+  }
+  ::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 0, 0, 0.4);
+  }
+}
+
+@utility bg-surface {
+  background-color: var(--bg);
+}
+@utility bg-card {
+  background-color: var(--card);
+}
+@utility bg-card-hover {
+  background-color: var(--card-hover);
+}
+@utility text-main {
+  color: var(--text);
+}
+@utility text-muted {
+  color: var(--text-muted);
+}
+@utility border-subtle {
+  border-color: var(--border);
+}
+@utility bg-input {
+  background-color: var(--input);
+}
+@utility document-shadow {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
