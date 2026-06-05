@@ -6,7 +6,7 @@ import { Role } from '../../types';
 
 export default function PengaturanGlobal() {
   const { standName, waliKelasName, setStandName, setWaliKelasName, resetData, profiles, setProfile } = useStore();
-  const [localStand, setLocalStand] = useState(standName);
+  const [localStand, setLocalStand] = useState(standName || '');
   
   const [resetConfirm, setResetConfirm] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
@@ -34,12 +34,13 @@ export default function PengaturanGlobal() {
 
   const startEditProfile = (role: Role) => {
       setEditingRole(role);
-      setEditLeader(profiles[role].leader);
+      // PENGAMAN 1: Menggunakan opsional chaining jika profil peran belum terdefinisi
+      setEditLeader(profiles?.[role]?.leader || '');
   };
 
   const saveEditProfile = () => {
-      if (editingRole) {
-          setProfile(editingRole, { ...profiles[editingRole], leader: editLeader });
+      if (editingRole && profiles) {
+          setProfile(editingRole, { ...(profiles[editingRole] || { isFilled: false, leader: '', members: [] }), leader: editLeader });
           setEditingRole(null);
       }
   };
@@ -69,7 +70,7 @@ export default function PengaturanGlobal() {
                          </div>
                          <div className="space-y-2">
                             <Label htmlFor="wk" className="text-[10px] font-bold uppercase tracking-wider text-muted mb-1 block">Otoritas Wali Kelas (Super Admin)</Label>
-                            <Input id="wk" value={waliKelasName} onChange={e => setWaliKelasName(e.target.value)} className="bg-[var(--color-charcoal-100)] dark:bg-[var(--color-charcoal-950)] border-subtle h-11" />
+                            <Input id="wk" value={waliKelasName || ''} onChange={e => setWaliKelasName(e.target.value)} className="bg-[var(--color-charcoal-100)] dark:bg-[var(--color-charcoal-950)] border-subtle h-11" />
                          </div>
                          <Button type="submit" variant="secondary" className="w-full h-11 font-bold uppercase tracking-wider text-xs">Simpan Perubahan Identitas</Button>
                      </form>
@@ -97,15 +98,15 @@ export default function PengaturanGlobal() {
              </CardHeader>
              <CardContent className="flex-1 pt-6 pb-2">
                  <div className="space-y-4 pr-1">
-                     {(Object.entries(profiles) as [Role, typeof profiles[Role]][]).map(([role, prof]) => {
+                     {profiles && (Object.entries(profiles) as [Role, typeof profiles[Role]][]).map(([role, prof]) => {
                          if(role === 'Wali Kelas') return null; // Ditangani terpisah
                          return (
                              <div key={role} className="p-4 rounded-xl border border-subtle bg-[var(--color-charcoal-50)] dark:bg-[var(--color-charcoal-950)] space-y-3">
                                  <div className="flex justify-between items-center pb-2 border-b border-subtle">
                                     <h4 className="font-bold text-main uppercase tracking-wider text-xs">Divisi {role}</h4>
-                                    <Badge variant={prof.isFilled ? 'success' : 'default'} className="font-bold uppercase tracking-wider text-[9px] px-2 py-0.5">{prof.isFilled ? 'Aktif' : 'Belum Setup'}</Badge>
+                                    <Badge variant={prof?.isFilled ? 'success' : 'default'} className="font-bold uppercase tracking-wider text-[9px] px-2 py-0.5">{prof?.isFilled ? 'Aktif' : 'Belum Setup'}</Badge>
                                  </div>
-                                 {prof.isFilled && (
+                                 {prof?.isFilled && (
                                      <>
                                         <div className="text-sm grid grid-cols-12 gap-2 items-center">
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-muted col-span-3">Ketua Div.</span>
@@ -116,16 +117,17 @@ export default function PengaturanGlobal() {
                                                 </div>
                                             ) : (
                                                 <div className="col-span-9 flex justify-between items-center bg-surface border border-subtle px-3 py-1.5 rounded-lg">
-                                                    <span className="font-bold text-main">{prof.leader}</span> 
+                                                    <span className="font-bold text-main">{prof?.leader}</span> 
                                                     <button onClick={() => startEditProfile(role)} className="text-blue-500 hover:text-blue-600 bg-blue-500/10 p-1.5 rounded-md hover:bg-blue-500/20 transition-colors"><Edit className="w-3 h-3"/></button>
                                                 </div>
                                             )}
                                         </div>
-                                        {prof.members.length > 0 && (
+                                        {/* PENGAMAN 2: Menggunakan tanda tanya ?. untuk menghindari crash saat membaca length */}
+                                        {(prof?.members?.length || 0) > 0 && (
                                             <div className="text-sm pt-2">
                                                <span className="text-[9px] font-bold uppercase tracking-wider text-muted block mb-1">Daftar Anggota:</span>
                                                <ul className="space-y-1.5 mt-2">
-                                                   {prof.members.map(m => (
+                                                   {prof?.members?.map(m => (
                                                        <li key={m.id} className="text-xs flex items-start gap-2 bg-input/50 px-2.5 py-1.5 rounded-md font-medium text-main">
                                                           <div className="w-1 h-1 bg-[var(--primary-green)] rounded-full mt-1.5"></div>
                                                           <div className="flex flex-col">
@@ -178,4 +180,3 @@ export default function PengaturanGlobal() {
     </div>
   );
 }
-
