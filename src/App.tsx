@@ -32,7 +32,7 @@ export default function App() {
   const handleRoleSelect = (role: Role) => {
     setActiveRole(role);
     // If profile is already filled, go straight to dashboard
-    if (profiles[role]?.isFilled || (role === 'Wali Kelas' && profiles['Wali Kelas']?.isFilled)) {
+    if (profiles?.[role]?.isFilled || (role === 'Wali Kelas' && profiles?.['Wali Kelas']?.isFilled)) {
       setCurrentView('dashboard');
     } else {
       setCurrentView('profile');
@@ -40,6 +40,7 @@ export default function App() {
   };
 
   const renderDashboard = () => {
+    if (!activeRole) return null;
     switch (activeRole) {
       case 'Wali Kelas': return <WaliKelasDashboard />;
       case 'Bendahara': return <BendaharaDashboard />;
@@ -78,10 +79,10 @@ export default function App() {
            </motion.div>
         )}
 
-        {['dashboard', 'logs', 'settings'].includes(currentView) && (
+        {['dashboard', 'logs', 'settings'].includes(currentView) && activeRole && (
           <motion.div key="main-board" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full">
             <DashboardLayout 
-              activeRole={activeRole!} 
+              activeRole={activeRole} 
               currentView={currentView}
               onNavigate={(view) => setCurrentView(view as any)}
               onLogout={() => { setActiveRole(null); setCurrentView('portal'); }}
@@ -90,8 +91,10 @@ export default function App() {
               <AnimatePresence mode="wait">
                 <motion.div key={currentView} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                   {currentView === 'dashboard' && renderDashboard()}
-                  {currentView === 'logs' && <RekamJejak />}
-                  {currentView === 'settings' && <PengaturanGlobal />}
+                  
+                  {/* PENAMBAL AMAN: Menyuntikkan activeRole/props pendukung seandainya komponen membutuhkannya */}
+                  {currentView === 'logs' && <RekamJejak activeRole={activeRole} />}
+                  {currentView === 'settings' && <PengaturanGlobal activeRole={activeRole} />}
                 </motion.div>
               </AnimatePresence>
             </DashboardLayout>
