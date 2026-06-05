@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Input, Label } from '../ui';
 import { useStore } from '../../store';
 import { formatIDR } from '../../lib/utils';
@@ -7,13 +7,24 @@ import { motion } from 'motion/react';
 
 export default function KelilingDashboard() {
   const { menuProduk, addTransaksi, profiles } = useStore();
-  const profile = profiles['Keliling'];
+  
+  // PENGAMAN 1: Berikan fallback object kosong jika profiles atau profile 'Keliling' belum ter-load
+  const profile = profiles? rampi || profiles?.['Keliling'] || { leader: '', members: [], isFilled: false };
 
-  const [sellerName, setSellerName] = useState(profile.members[0]?.name || profile.leader || '');
+  const [sellerName, setSellerName] = useState('');
   const [selectedMenuId, setSelectedMenuId] = useState('');
   const [qty, setQty] = useState(1);
 
-  const selectedMenu = menuProduk.find(m => m.id === selectedMenuId);
+  // PENGAMAN 2: Sinkronisasi state sellerName saat data profile berhasil dimuat dari Firestore
+  useEffect(() => {
+    if (profile?.isFilled || profile?.leader || profile?.members?.length > 0) {
+      setSellerName(profile?.members?.[0]?.name || profile?.leader || '');
+    }
+  }, [profile]);
+
+  // PENGAMAN 3: Pastikan menuProduk selalu berupa array sebelum dieksekusi
+  const safeMenuProduk = menuProduk || [];
+  const selectedMenu = safeMenuProduk.find(m => m.id === selectedMenuId);
   const totalHarga = selectedMenu ? selectedMenu.sellPrice * qty : 0;
 
   const handleCheckout = (e: React.FormEvent) => {
@@ -34,7 +45,7 @@ export default function KelilingDashboard() {
         qty: qty,
         unitPrice: selectedMenu.sellPrice,
         totalPrice: totalHarga,
-        method: 'Tunai', // Keliling usually uses Tunai
+        method: 'Tunai', // Keliling biasanya menggunakan tunai
         sellerRole: 'Keliling',
         sellerName: sellerName,
     });
@@ -70,8 +81,13 @@ export default function KelilingDashboard() {
                      value={sellerName} onChange={(e) => setSellerName(e.target.value)} required
                 >
                     <option value="" disabled>-- Pilih Nama Petugas --</option>
-                    <option value={profile.leader}>{profile.leader} (Ketua Keliling)</option>
-                    {profile.members.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                    {profile?.leader && (
+                      <option value={profile.leader}>{profile.leader} (Ketua Keliling)</option>
+                    )}
+                    {/* PENGAMAN 4: Gunakan optional chaining sebelum melakukan map array anggota */}
+                    {(profile?.members || []).map(m => (
+                      <option key={m.id} value={m.name}>{m.name}</option>
+                    ))}
                 </select>
               </div>
 
@@ -83,7 +99,7 @@ export default function KelilingDashboard() {
                   required
                 >
                   <option value="" disabled>-- Klik untuk memilih produk --</option>
-                  {menuProduk.map(m => (
+                  {safeMenuProduk.map(m => (
                     <option key={m.id} value={m.id} disabled={m.stock <= 0}>
                       {m.name} - {formatIDR(m.sellPrice)} (Stok Stan: {m.stock})
                     </option>
@@ -102,7 +118,7 @@ export default function KelilingDashboard() {
                     <span className="text-2xl font-black text-main">{formatIDR(totalHarga)}</span>
                  </div>
                  <Button type="submit" variant="neon" className="w-full h-12 uppercase font-bold tracking-wider text-sm bg-blue-600 border-none text-white hover:bg-blue-700 hover:text-white" disabled={!selectedMenuId || (selectedMenu?.stock || 0) < qty}>
-                   Setor Data Penjualan Keliling
+                    Setor Data Penjualan Keliling
                  </Button>
               </div>
             </form>
@@ -112,4 +128,3 @@ export default function KelilingDashboard() {
     </div>
   );
 }
-
