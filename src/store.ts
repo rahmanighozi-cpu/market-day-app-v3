@@ -94,7 +94,6 @@ const pushToFirebase = (state: any) => {
         pettyCash: state.pettyCash || [],
         logs: state.logs || []
     };
-    // Mengunci jalur database ke 'shared-market-data' agar tidak tabrakan
     firebaseSet(ref(db, 'shared-market-data/'), dataToSync);
 };
 
@@ -297,24 +296,30 @@ export const useStore = create<AppState>()(
                 }
             },
 
-            syncFromFirebase: (data) => set({
-                standName: data.standName ?? '',
-                waliKelasName: data.waliKelasName ?? '',
-                modalAwal: data.modalAwal ?? 0,
-                profiles: data.profiles ?? defaultProfiles,
-                bahanBaku: data.bahanBaku ?? [],
-                menuProduk: data.menuProduk ?? [],
-                transaksi: data.transaksi ?? [],
-                peralatan: data.peralatan ?? [],
-                desain: data.desain ?? [],
-                penampilan: data.penampilan ?? { naskah: '', duration: 0, showTime: '' },
-                requestProperti: data.requestProperti ?? [],
-                pettyCash: data.pettyCash ?? [],
-                logs: data.logs ?? []
-            })
+            // LOGIKA SYNC TERBARU YANG ANTIPELURU & ANTICRASH
+            syncFromFirebase: (data) => {
+                if (!data) return;
+                set({
+                    standName: data.standName || '',
+                    waliKelasName: data.waliKelasName || '',
+                    modalAwal: Number(data.modalAwal) || 0,
+                    profiles: data.profiles || defaultProfiles,
+                    bahanBaku: Array.isArray(data.bahanBaku) ? data.bahanBaku : [],
+                    menuProduk: Array.isArray(data.menuProduk) ? data.menuProduk : [],
+                    transaksi: Array.isArray(data.transaksi) ? data.transaksi : [],
+                    peralatan: Array.isArray(data.peralatan) ? data.peralatan : [],
+                    desain: Array.isArray(data.desain) ? data.desain : [],
+                    penampilan: data.penampilan || { naskah: '', duration: 0, showTime: '' },
+                    requestProperti: Array.isArray(data.requestProperti) ? data.requestProperti : [],
+                    pettyCash: Array.isArray(data.pettyCash) ? data.pettyCash : [],
+                    logs: Array.isArray(data.logs) ? data.logs : [] // <--- Mengunci agar data kosong dikonversi ke array kosong
+                });
+            }
         }),
         { 
-            name: 'market-day-storage-v3', // Mengubah nama penyimpanan lokal agar cache lama terbuang otomatis
+            name: 'market-day-storage-v3',
+            version: 1,           // <--- Naikkan versi agar browser merestart cache usang
+            migrate: () => ({}),  // <--- Hancurkan memori lokal lama yang merusak UI
             partialize: (state) => Object.fromEntries(
                 Object.entries(state).filter(([key]) => !['theme'].includes(key))
             ) as any
@@ -322,7 +327,6 @@ export const useStore = create<AppState>()(
     )
 );
 
-// Mendengarkan perubahan di Firebase cloud
 if (typeof window !== 'undefined') {
     onValue(ref(db, 'shared-market-data/'), (snapshot) => {
         const data = snapshot.val();
