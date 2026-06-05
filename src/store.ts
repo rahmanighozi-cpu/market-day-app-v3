@@ -5,7 +5,7 @@ import {
     Peralatan, DesainItem, PenampilanData, PettyCash, AuditLog, RequestProperti 
 } from './types';
 import { generateId, getNowFormatted } from './lib/utils';
-import { db } from './firebase'; // Memanggil konfigurasi Firebase yang kita buat sebelumnya
+import { db } from './firebase';
 import { ref, set as firebaseSet, onValue } from 'firebase/database';
 
 interface AppState {
@@ -77,24 +77,25 @@ const defaultProfiles: Record<Role, TeamProfile> = {
     'Penampilan': { isFilled: false, leader: '', members: [] },
 };
 
-// Fungsi pembantu untuk otomatis melempar state data ke Firebase cloud setiap kali ada perubahan
-const syncToFirebase = (state: any) => {
+// Fungsi kirim data yang aman (Hanya mengirim jika dipicu oleh aksi user)
+const pushToFirebase = (state: any) => {
     const dataToSync = {
-        standName: state.standName,
-        waliKelasName: state.waliKelasName,
-        modalAwal: state.modalAwal,
-        profiles: state.profiles,
-        bahanBaku: state.bahanBaku,
-        menuProduk: state.menuProduk,
-        transaksi: state.transaksi,
-        peralatan: state.peralatan,
-        desain: state.desain,
-        penampilan: state.penampilan,
-        requestProperti: state.requestProperti,
-        pettyCash: state.pettyCash,
-        logs: state.logs
+        standName: state.standName || '',
+        waliKelasName: state.waliKelasName || '',
+        modalAwal: state.modalAwal || 0,
+        profiles: state.profiles || defaultProfiles,
+        bahanBaku: state.bahanBaku || [],
+        menuProduk: state.menuProduk || [],
+        transaksi: state.transaksi || [],
+        peralatan: state.peralatan || [],
+        desain: state.desain || [],
+        penampilan: state.penampilan || { naskah: '', duration: 0, showTime: '' },
+        requestProperti: state.requestProperti || [],
+        pettyCash: state.pettyCash || [],
+        logs: state.logs || []
     };
-    firebaseSet(ref(db, 'market-day-data/'), dataToSync);
+    // Mengunci jalur database ke 'shared-market-data' agar tidak tabrakan
+    firebaseSet(ref(db, 'shared-market-data/'), dataToSync);
 };
 
 export const useStore = create<AppState>()(
@@ -108,15 +109,15 @@ export const useStore = create<AppState>()(
             modalAwal: 0,
             setStandName: (standName) => {
                 set({ standName });
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             setWaliKelasName: (waliKelasName) => {
                 set({ waliKelasName });
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             setModalAwal: (modalAwal) => {
                 set({ modalAwal });
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             profiles: defaultProfiles,
@@ -124,57 +125,56 @@ export const useStore = create<AppState>()(
                 set((state) => ({
                     profiles: { ...state.profiles, [role]: profile }
                 }));
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             bahanBaku: [],
             addBahanBaku: (item) => {
+                let updatedBahan = [];
                 set((state) => {
                     const priceMatch = Number(item.buyPrice) * Number(item.quantity);
                     const statusAcc = item.source === 'Kas' ? 'Menunggu' : 'Disetujui';
-                    const newState = {
-                        bahanBaku: [...state.bahanBaku, { ...item, id: generateId(), totalPrice: priceMatch, statusAcc }]
-                    };
-                    return newState;
+                    updatedBahan = [...state.bahanBaku, { ...item, id: generateId(), totalPrice: priceMatch, statusAcc }];
+                    return { bahanBaku: updatedBahan };
                 });
                 get().addLog(`Bahan Baku '${item.name}' ditambahkan.`, 'Konsumsi');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             updateBahanBaku: (id, updates) => {
                 set((state) => ({
                     bahanBaku: state.bahanBaku.map(b => b.id === id ? { ...b, ...updates, totalPrice: (updates.buyPrice || b.buyPrice) * (updates.quantity || b.quantity) } : b)
                 }));
                 get().addLog(`Bahan Baku (ID: ${id}) diperbarui.`, 'Konsumsi');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             deleteBahanBaku: (id) => {
                 set((state) => ({ bahanBaku: state.bahanBaku.filter(b => b.id !== id) }));
                 get().addLog(`Bahan Baku (ID: ${id}) dihapus.`, 'Konsumsi');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             accBahanBaku: (id, status) => {
                 set((state) => ({
                     bahanBaku: state.bahanBaku.map(b => b.id === id ? { ...b, statusAcc: status } : b)
                 }));
                 get().addLog(`Pengajuan Dana Bahan Baku (ID: ${id}) diperbarui menjadi ${status}.`, 'Bendahara');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             menuProduk: [],
             addMenu: (menu) => {
                 set((state) => ({ menuProduk: [...state.menuProduk, { ...menu, id: generateId() }] }));
                 get().addLog(`Menu '${menu.name}' ditambahkan.`, 'Konsumsi');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             updateMenu: (id, updates) => {
                 set((state) => ({ menuProduk: state.menuProduk.map(m => m.id === id ? { ...m, ...updates } : m) }));
                 get().addLog(`Menu (ID: ${id}) diperbarui.`, 'Konsumsi');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             deleteMenu: (id) => {
                 set((state) => ({ menuProduk: state.menuProduk.filter(m => m.id !== id) }));
                 get().addLog(`Menu (ID: ${id}) dihapus.`, 'Konsumsi');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             transaksi: [],
@@ -189,7 +189,7 @@ export const useStore = create<AppState>()(
                     };
                 });
                 get().addLog(`Transaksi baru dari ${t.sellerRole} untuk menu '${t.menuName}'.`, t.sellerRole);
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             peralatan: [],
@@ -199,71 +199,71 @@ export const useStore = create<AppState>()(
                     return { peralatan: [...state.peralatan, { ...item, id: generateId(), statusAcc }] };
                 });
                 get().addLog(`Peralatan '${item.name}' ditambahkan.`, 'Logistik');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             updatePeralatan: (id, updates) => {
                 set((state) => ({ peralatan: state.peralatan.map(p => p.id === id ? { ...p, ...updates } : p) }));
                 get().addLog(`Peralatan (ID: ${id}) diperbarui.`, 'Logistik');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             deletePeralatan: (id) => {
                 set((state) => ({ peralatan: state.peralatan.filter(p => p.id !== id) }));
                 get().addLog(`Peralatan (ID: ${id}) dihapus.`, 'Logistik');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             accPeralatan: (id, status) => {
                 set((state) => ({
                     peralatan: state.peralatan.map(p => p.id === id ? { ...p, statusAcc: status } : p)
                 }));
                 get().addLog(`Pengajuan Dana Peralatan (ID: ${id}) diperbarui menjadi ${status}.`, 'Bendahara');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             desain: [],
             addDesain: (item) => {
                 set((state) => ({ desain: [...state.desain, { ...item, id: generateId(), time: getNowFormatted() }] }));
                 get().addLog(`Media Promosi '${item.title}' diunggah.`, 'Desain');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             updateDesainStatus: (id, status, feedback) => {
                 set((state) => ({ desain: state.desain.map(d => d.id === id ? { ...d, status, feedback } : d) }));
                 get().addLog(`Status Desain (ID: ${id}) diubah menjadi ${status}.`, 'Wali Kelas');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             deleteDesain: (id) => {
                 set((state) => ({ desain: state.desain.filter(d => d.id !== id) }));
                 get().addLog(`Media Promosi (ID: ${id}) dihapus.`, 'Desain');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             penampilan: { naskah: '', duration: 0, showTime: '' },
             setPenampilan: (data) => {
                 set({ penampilan: data });
                 get().addLog(`Data Penampilan diperbarui.`, 'Penampilan');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             requestProperti: [],
             addRequestProperti: (req) => {
                 set((state) => ({ requestProperti: [...state.requestProperti, { ...req, id: generateId() }] }));
                 get().addLog(`Request Properti '${req.name}' oleh Penampilan.`, 'Penampilan');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             updateRequestProperti: (id, status) => {
                 set((state) => ({ requestProperti: state.requestProperti.map(r => r.id === id ? { ...r, status } : r) }));
                 get().addLog(`Status Request Properti (ID: ${id}) diubah menjadi ${status}.`, 'Logistik');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             pettyCash: [],
             addPettyCash: (pc) => {
                 set((state) => ({ pettyCash: [...state.pettyCash, { ...pc, id: generateId() }] }));
                 get().addLog(`Kas Kecil dikeluarkan: ${pc.description}`, 'Bendahara');
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
             deletePettyCash: (id) => {
                 set((state) => ({ pettyCash: state.pettyCash.filter(p => p.id !== id) }));
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             logs: [],
@@ -272,7 +272,7 @@ export const useStore = create<AppState>()(
             })),
             clearLogs: () => {
                 set({ logs: [] });
-                syncToFirebase(get());
+                pushToFirebase(get());
             },
 
             resetData: (confirm) => {
@@ -293,11 +293,10 @@ export const useStore = create<AppState>()(
                         logs: []
                     });
                     get().addLog('Semua Sistem Direset Ulang', 'System');
-                    syncToFirebase(get()); // Menghapus cloud data di Firebase juga secara bersamaan!
+                    pushToFirebase(get());
                 }
             },
 
-            // Fungsi penangkap sinyal real-time untuk memperbarui layar device lain secara otomatis
             syncFromFirebase: (data) => set({
                 standName: data.standName ?? '',
                 waliKelasName: data.waliKelasName ?? '',
@@ -315,7 +314,7 @@ export const useStore = create<AppState>()(
             })
         }),
         { 
-            name: 'market-day-storage',
+            name: 'market-day-storage-v3', // Mengubah nama penyimpanan lokal agar cache lama terbuang otomatis
             partialize: (state) => Object.fromEntries(
                 Object.entries(state).filter(([key]) => !['theme'].includes(key))
             ) as any
@@ -323,9 +322,9 @@ export const useStore = create<AppState>()(
     )
 );
 
-// Memicu sinkronisasi data otomatis antar perangkat dari database Firebase secara real-time
+// Mendengarkan perubahan di Firebase cloud
 if (typeof window !== 'undefined') {
-    onValue(ref(db, 'market-day-data/'), (snapshot) => {
+    onValue(ref(db, 'shared-market-data/'), (snapshot) => {
         const data = snapshot.val();
         if (data) {
             useStore.getState().syncFromFirebase(data);
